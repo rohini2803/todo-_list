@@ -6,6 +6,7 @@ import {
   Text,
   StyleSheet,
   TextInput,
+  Button,
   TouchableOpacity,
   FlatList,
   Alert,
@@ -25,6 +26,7 @@ import {
 const HomeScreen = () => {
   const [todoInput, setTodoInput] = useState("");
   const [todos, setTodos] = useState([]);
+  const [editingIndex, setEditingIndex] = useState(null);
 
   useEffect(() => {
     if (!auth.currentUser) return;
@@ -87,7 +89,25 @@ const HomeScreen = () => {
     }
   };
 
-  const renderTodoItem = ({ item }) => (
+  const startEditTodo = (index) => {
+    setTodoInput(todos[index].title);
+    setEditingIndex(index);
+  };
+
+  const saveEditTodo = async (id) => {
+    if (todoInput.trim() === "") return;
+    try {
+      await updateDoc(doc(db, "todos", id), {
+        title: todoInput,
+      });
+      setTodoInput("");
+      setEditingIndex(null);
+    } catch (error) {
+      console.error("Error updating todo:", error);
+    }
+  };
+
+  const renderTodoItem = ({ item, index }) => (
     <View style={styles.todoItem}>
       <TouchableOpacity
         style={styles.todoCheckbox}
@@ -100,47 +120,58 @@ const HomeScreen = () => {
       >
         {item.title}
       </Text>
-      <TouchableOpacity
-        style={styles.deleteButton}
-        onPress={() => deleteTodo(item.id)}
-      >
-        <Text style={styles.deleteButtonText}>Delete</Text>
-      </TouchableOpacity>
+      <View style={styles.actions}>
+        <TouchableOpacity onPress={() => startEditTodo(index)}>
+          <Text style={styles.edit}>Edit</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => deleteTodo(item.id)}>
+          <Text style={styles.delete}>Delete</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 
   return (
     <View style={[styles.container, SafeViewAndroid.AndroidSafeArea]}>
-        <View style={styles.header}>
-          <Text style={styles.title}>My Todos</Text>
-          <TouchableOpacity
-            style={styles.signOutButton}
-            onPress={handleSignOut}
-          >
-            <Text style={styles.signOutButtonText}>Sign Out</Text>
-          </TouchableOpacity>
-        </View>
+      <View style={styles.header}>
+        <Text style={styles.title}>My Todos</Text>
+        <TouchableOpacity
+          style={styles.signOutButton}
+          onPress={handleSignOut}
+        >
+          <Text style={styles.signOutButtonText}>Sign Out</Text>
+        </TouchableOpacity>
+      </View>
 
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.input}
-            value={todoInput}
-            onChangeText={setTodoInput}
-            placeholder="Add a new todo..."
-            placeholderTextColor="#666"
-          />
+      <View style={styles.inputContainer}>
+        <TextInput
+          style={styles.input}
+          value={todoInput}
+          onChangeText={setTodoInput}
+          placeholder="Add a new todo..."
+          placeholderTextColor="#666"
+        />
+        {editingIndex === null ? (
           <TouchableOpacity style={styles.addButton} onPress={addTodo}>
             <Text style={styles.addButtonText}>Add</Text>
           </TouchableOpacity>
-        </View>
-
-        <FlatList
-          data={todos}
-          renderItem={renderTodoItem}
-          keyExtractor={(item) => item.id}
-          style={styles.todoList}
-        />
+        ) : (
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={() => saveEditTodo(todos[editingIndex].id)}
+          >
+            <Text style={styles.addButtonText}>Save</Text>
+          </TouchableOpacity>
+        )}
       </View>
+
+      <FlatList
+        data={todos}
+        renderItem={renderTodoItem}
+        keyExtractor={(item) => item.id}
+        style={styles.todoList}
+      />
+    </View>
   );
 };
 
@@ -232,6 +263,16 @@ const styles = StyleSheet.create({
   },
   signOutButtonText: {
     color: "#fff",
+  },
+  actions: {
+    flexDirection: "row",
+  },
+  edit: {
+    color: "blue",
+    marginRight: 10,
+  },
+  delete: {
+    color: "red",
   },
 });
 
